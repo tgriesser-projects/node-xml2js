@@ -6,6 +6,53 @@ bom = require './bom'
 isEmpty = (thing) ->
   return typeof thing is "object" && thing? && Object.keys(thing).length is 0
 
+clearObject = (obj, parent, topkey) ->
+
+  if obj instanceof Array
+    if obj.length is 1 and not obj[0].$?
+      parent[topkey] = clearObject(obj[0])
+    else
+      for item in obj
+        if typeof obj is 'object'
+          clearObject item
+        else
+          item
+  else
+    if obj.$ or obj['|']
+      for key, val of obj
+        if key isnt '$' and key isnt '|'
+          delete obj[key]
+        else if key is '|'
+          if val.length is 0
+            delete obj[key]
+          else
+            clearObject(val, obj, key)
+        else if key is '$'
+          for k2, v2 of obj[key]
+            clearDollar(obj, k2, v2)
+          delete obj[key]
+    else
+      for key, val of obj
+        if typeof val is 'object'
+          clearObject(obj[key], obj, key)
+        else
+          val
+    obj
+
+parsePipes = (obj) ->
+  if typeof obj is 'object'
+    if Object.keys(obj).length is 1 and '|' of obj
+      kys = Object.keys(obj['|'])
+      if kys.length is 1
+        obj[kys[0]] = obj['|'][kys]
+        delete obj['|']
+    for k, v of obj
+      obj[k] = parsePipes v
+  obj
+
+clearDollar = (target, key, val) ->
+  target['$_' + key] = val
+
 exports.defaults =
   "0.1":
     explicitCharkey: false
@@ -42,6 +89,7 @@ exports.defaults =
     normalize: false
     normalizeTags: false
     attrkey: "$"
+    nodekey: "|"
     charkey: "_"
     explicitArray: true
     ignoreAttrs: false
@@ -50,6 +98,7 @@ exports.defaults =
     validator: null
     xmlns : false
     explicitChildren: false
+    explicitSiblingArray: false
     childkey: '$$'
     charsAsChildren: false
     # not async in 0.2 mode either
@@ -102,6 +151,7 @@ class exports.Parser extends events.EventEmitter
     @resultObject = null
     stack = []
     # aliases, so we don't have to type so much
+    nodekey = @options.nodekey
     attrkey = @options.attrkey
     charkey = @options.charkey
 
@@ -112,6 +162,7 @@ class exports.Parser extends events.EventEmitter
         for own key of node.attributes
           if attrkey not of obj and not @options.mergeAttrs
             obj[attrkey] = {}
+            obj[nodekey] = []
           if @options.mergeAttrs
             obj[key] = node.attributes[key]
           else
@@ -188,16 +239,23 @@ class exports.Parser extends events.EventEmitter
         else
           if not (s[nodeName] instanceof Array)
             s[nodeName] = []
+            if not s[nodekey] and typeof obj is 'object'
+              s[nodekey] = []
+            if s[nodekey]
+              data = {}
+              data[nodeName] = s[nodeName]
+              s[nodekey].push(data)
           s[nodeName].push obj
       else
         # if explicitRoot was specified, wrap stuff in the root tag name
         if @options.explicitRoot
+
           # avoid circular references
           old = obj
           obj = {}
           obj[nodeName] = old
 
-        @resultObject = obj
+        @resultObject = parsePipes(clearObject(obj))
         @emit "end", @resultObject
 
     ontext = (text) =>

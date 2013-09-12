@@ -27,7 +27,7 @@
   ],
   "main" : "./lib/xml2js",
   "directories" : {
-    "lib": "./lib"
+    "lib": "./lib/index.js"
   },
   "scripts" : {
     "test": "zap"

@@ -25,7 +25,7 @@
     "Chris Tavares <ctavares@microsoft.com> (https://github.com/christav)",
     "Frank Xu <yyfrankyy@gmail.com> (http://f2e.us/)"
   ],
-  "main" : "./lib/index.js",
+  "main" : "./src/index.js",
   "directories" : {
     "lib": "./lib"
   },
